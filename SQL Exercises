@@ -1,0 +1,634 @@
+create table if not exists editoras(
+codEditora int AUTO_INCREMENT PRIMARY KEY,
+nome varchar(80)
+);
+
+create table if not exists assuntos(
+sigla char PRIMARY KEY,
+descricao varchar(50) NOT NULL
+);
+
+create table if not exists autores(
+matricula int PRIMARY KEY,
+nome varchar(80) NOT NULL,
+CPF character(11) NOT NULL,
+endereco varchar(100) NOT NULL,
+dataNascimeno date NOT NULL,
+nacionalidade varchar(30) NOT NULL
+);
+
+create table if not exists livros (
+codLivro int AUTO_INCREMENT PRIMARY KEY,
+titulo varchar(80) NOT NULL,
+preco float,
+lancamento date,
+assunto char NOT NULL,
+editora int NOT NULL,
+FOREIGN KEY (assunto) REFERENCES assuntos(sigla),
+FOREIGN KEY (editora) REFERENCES editoras(codEditora)
+);
+
+create table if not exists autores_livros(
+codLivro int NOT NULL,
+matriculaAutor int NOT NULL,
+primary key (codLivro, matriculaAutor),
+FOREIGN KEY (codLivro) REFERENCES livros(codLivro),
+FOREIGN KEY (matriculaAutor) REFERENCES autores(matricula)
+);
+
+INSERT INTO editoras(nome) VALUES
+('Miradela Editora'),
+('Editora Via-Norte'),
+('Editora Ilhas Tijucas'),
+('MJ Editora');
+
+INSERT INTO assuntos(sigla,descricao) VALUES
+('B', 'Banco de Dados'),
+('P', 'Programação'),
+('R', 'Redes'),
+('S', 'Sistemas Operacionais');
+
+INSERT INTO livros(titulo, preco, lancamento, assunto, editora) VALUES
+('Banco de Dados para a Web', 131.2, '2015-01-10','B', 1),
+('Programacao em Linguagem C', 130, '2007-10-01','P', 1),
+('Programacao em Linguagem C++', 110.5, '2002-11-01','P', 3),
+('Banco de Dados da BioInformatica', 90, null, 'B', 2),
+('Redes de Computadores', 72, '2011-03-07', 'R', 2);
+
+INSERT INTO autores(matricula, nome, CPF, endereco, dataNascimeno, nacionalidade) VALUES
+(123, 'John Smith','11111111', 'Rua Brasil', '1963-04-03', 'Canadense'),
+(456, 'Adam Silva', '22222222', 'Rua Canada', '1983-06-13', 'Brasileiro'),
+(789, 'Matias Rodrigues', '33333333', 'Rua Argentina', '1976-08-06', 'Argentina');
+
+INSERT INTO autores_livros(codLivro, matriculaAutor) VALUES
+(1,456), (1,789), (2,123), (3, 123), (4,456), (5,789);
+
+
+select nome 
+from editoras e 
+where exists (select editora 
+              from livros 
+              where lancamento is not null 
+              and e.codEditora = editora);
+
+select descricao 
+from assuntos a 
+where not exists(select assunto 
+			     from livros 
+                 where lancamento is not null 
+                 and a.sigla = assunto);
+
+delete 
+from editoras 
+where not exists(select editora 
+                 from livros 
+                 where editora = editoras.codEditora);
+
+select nome 
+from editoras e 
+where exists(select editora 
+			 from livros 
+             where lancamento is null
+             and e.codEditora = editora);
+
+select nome 
+from autores 
+where datanascimento in (select min(datanascimento) from autores);
+
+select nome 
+from editoras  
+where codEditora in (select editora 
+                     from livros 
+                     where lancamento is null);
+
+select nome from editoras
+where codEditora in( 
+select editora from livros
+where assunto in (
+select sigla from assuntos
+where descricao = 'Banco de dados'));
+
+select nome 
+from autores a, livros b
+where b.preco in(select max(preco)
+                 from livros);
+ 
+select descricao 
+as assuntos, (select count(*) 
+			  from livros v 
+			  where v.assunto = a.sigla 
+			  and lancamento is not null) as livros_lancados 
+from assuntos a;
+
+select nome, (select avg(preco) 
+              from livros v 
+              where v.editora = e.codEditora 
+              and lancamento is not null) as preco_medio
+from editoras e
+order by nome;
+
+select descricao, (select avg(preco) 
+                 from livros v 
+                 where preco is not null
+                 and v.assunto = a.sigla ) as preco_medio
+from assuntos a;
+
+select nome as Nome_Autor, (select count(*)
+              from autores_livros v, livros l
+             where v.matriculaAutor = matricula
+             and v.codLivro = l.codLivro
+             and lancamento is not null) as Livros_Publicados
+from autores a;
+
+	select nome, (select max(preco)
+				  from livros a, autores_livros b
+				  where b.matriculaAutor = c.matricula
+				  and b.codLivro = a.codlivro) as Maior_Preco
+	from autores c
+	order by nome;
+
+select nome, (select count(nome)
+              from autores_livros a, livros c, autores d
+              where a.codLivro = c.codLivro
+              and a.matriculaAutor = d.matricula
+              and c.editora = e.codEditora) as Qtde_Autores
+from editoras e;
+
+select * from autores_livros;
+
+create view livro_editora_assunto
+as select titulo, preco, nome as editora, descricao as assunto
+from livros l 
+inner join editoras E
+on editora = E.codEditora
+inner join assuntos A
+on A.sigla = L.assunto;
+
+select titulo, editora, assunto
+from livro_editora_assunto
+where preco > 45
+order by titulo;
+
+drop view livro_editora_assunto;
+
+create view v_conta_livros
+as select nome as Nome_Autor, count(a.matriculaAutor) as Qtd_Livros
+from livros l
+inner join autores_livros a
+on l.codlivro = a.codLivro
+inner join autores b
+on b.matricula = a.matriculaAutor
+group by a.matriculaAutor;
+
+select *
+from v_conta_livros
+order by nome_autor, Qtd_Livros;
+
+drop view v_conta_livros;
+
+create view nome_autor 
+as select nome as Nome_autor
+from autores a
+inner join autores_livros b
+on a.matricula = b.matriculaAutor
+inner join livros c
+on b.codLivro = c.codLivro
+where lancamento is not null
+group by b.matriculaAutor
+having count(b.matriculaAutor) >= 2;
+
+select nome as Nome_autor
+from autores a
+inner join autores_livros b
+on a.matricula = b.matriculaAutor
+inner join livros c
+on b.codLivro = c.codLivro
+where lancamento is not null
+group by b.matriculaAutor
+having count(b.matriculaAutor) >= 2;
+
+create view nome_descricao_livros
+as select nome as Nome_Autor, d.descricao as Descricao, count(*) as Qtd_Livros
+from autores a
+inner join autores_livros b
+on a.matricula = b.matriculaAutor
+inner join livros c
+on b.codLivro = c.codLivro
+inner join assuntos d
+on c.assunto = d.sigla
+group by b.matriculaAutor, c.assunto;
+
+create view titulo_descricao_editora
+as select titulo as Titulo_Livro, b.descricao as Assunto, nome as Editora
+from livros a
+inner join assuntos b
+on a.assunto = b.sigla
+inner join editoras c
+on c.codEditora = a.editora;
+
+delimiter $$
+
+create procedure preco_livros()
+begin
+	select titulo, preco from livros;
+end $$
+
+delimiter ;
+
+call preco_livros();
+
+
+delimiter $$
+
+create procedure selecionar_livros (in quantidade INT)
+begin
+	select* from livros
+    limit quantidade;
+end $$
+
+delimiter ;
+
+call selecionar_livros(2);
+
+
+delimiter $$
+
+create procedure verificar_qtd_livros (out quantidade INT)
+begin
+	select count(*) into quantidade
+    from livros;
+    end $$
+    
+    delimiter ;
+    
+    call verificar_qtd_livros(@total);
+    select @total;
+    
+    
+    delimiter $$
+    
+    create procedure calcular_preco_medio (in numero_livros INT, out preco_medio float)
+    
+    begin
+    
+		declare valor_total float;
+        declare preco_livros float;
+        declare finished int default 0;
+        
+        declare livro_cursor
+        cursor for select preco from livros;
+        
+        declare continue handler
+        for not found set finished = 1;
+        
+        open livro_cursor;
+        
+        set valor_total = 0;
+        set preco_medio = 0;
+        
+        get_preco: loop
+			fetch livro_cursor into preco_livros;
+            
+            if finished = 1 then
+				leave get_preco;
+			end if;
+            
+            set valor_total = valor+total + preco_livro;
+		end loop;
+		
+        close livro_cursor;
+        
+        set preco_medio = valor_total / numero_livros;
+End $$
+
+delimiter ;
+
+call verificar_qtd_livros(@qtd_livros);
+call calcular_preco_medio(@qtd_livros, @preco_medio);
+select @preco_medio;
+
+
+delimiter $$
+
+create function hello (s char(20))
+returns char(50) deterministic
+	return concat('Hello, ',s, '!');
+    
+$$
+delimiter ;
+
+select hello('world');
+
+delimiter $$
+
+create function verificar_qtd_livros()
+returns float deterministic
+begin
+	declare quantidade int;
+    select count(*) into quantidade from livros;
+    return quantidade;
+end $$
+
+delimiter ;
+
+select verificar_qtd_livros();
+
+drop procedure valor_total_livros;
+
+delimiter $$
+
+create procedure valor_total_livros (out valor_total float)
+
+begin
+
+		declare preco_dos_livros float;
+        declare finished int;
+        declare preco_livros float;
+        
+        
+		declare livro_cursor
+        cursor for select preco from livros;
+        
+        
+        declare continue handler
+        for not found set finished = 1;
+        
+        open livro_cursor;
+        
+        set valor_total = 0;
+        
+        get_preco: loop
+			fetch livro_cursor into preco_livros;
+            
+            if finished = 1 then
+				leave get_preco;
+			end if;
+            
+            set valor_total = valor_total + preco_livros;
+		end loop;
+        
+        close livro_cursor;
+        
+	end $$
+    delimiter ;
+    
+    call  valor_total_livros (@valor_total);
+    select @valor_total;
+	
+    
+		delimiter $$
+		
+		create procedure atualiza_lancamento (in data_lancamento date, in codigo int)
+		
+		begin
+		
+		update livros
+		set lancamento = data_lancamento
+		where codLivro = codigo;
+		
+		end $$
+		
+		delimiter ;
+		
+		call atualiza_lancamento ('2019-07-25', 1);
+		select * from livros;
+    
+    
+    delimiter $$
+    
+    create function qtd_livros_autor(cpf_autor varchar(11))
+    returns float deterministic
+    begin
+    
+    declare quantidade int;
+    
+    select count(*) into quantidade
+    from autores_livros AL
+		inner join autores A
+		on AL.matriculaAutor = A.matricula
+		where A.CPF = cpf_autor
+    group by CPF;
+    
+    return quantidade;
+    
+    end $$
+    
+    delimiter ;
+    
+    delimiter $$
+    
+    create procedure insere_assunto (in sigla char, in descricao varchar(50))
+    
+    begin
+		insert into assuntos
+        values (sigla,descricao);
+	end $$
+    
+    delimiter ;
+    
+    call insere_assunto ('E', 'Engenharia de Software');
+    select * from assuntos;
+    
+    
+    delimiter $$
+    
+    create procedure exclui_assunto (in siglaAssunto char)
+    begin
+		delete from assuntos
+        where siglaAssunto = sigla;
+	end $$
+    
+    delimiter ;
+    
+    call exclui_assunto('E');
+    select * from assuntos;
+    
+    
+    drop procedure atualiza_assunto;
+    
+    delimiter $$
+    
+    create procedure atualiza_assunto (in siglaAssunto char, in descricaoAssunto varchar(50))
+    begin
+		update assuntos
+        set descricao = descricaoAssunto
+        where siglaAssunto = sigla;
+	end $$
+    
+    delimiter ;
+    
+    call atualiza_assunto('E', 'Engenharia');
+    select * from assuntos;
+    
+   
+   
+   
+   
+   create table auditoria(
+		codigo_livro INT, valor_antigo float, valor_novo float);
+        
+        select * from livros;
+        
+	update livros set preco = 200
+    where codLivro = 1;
+    
+    select * from auditoria;
+    
+    delimiter $$
+    
+    create trigger testa_aumento
+    after update on livros for each row
+    begin
+		if(new.preco > 1.2 * old.preco) then
+			insert into auditoria (codigo_livro, valor_antigo, valor_novo)
+            values (new.codLivro, old.preco, new.preco);
+		end if;
+	end $$
+    
+    delimiter ;
+    
+    alter table autores
+	add Qtd_livros int;
+    
+    select * from autores;
+    
+    update autores
+    set Qtd_livros = 2
+    where matricula = 123;
+    
+    update autores
+    set Qtd_livros = 2
+    where matricula = 456;
+    
+    update autores
+    set Qtd_livros = 2
+    where matricula = 789;
+    
+    
+ 
+delimiter $$
+
+create trigger livro_add
+after insert on autores_livros for each row
+begin 
+
+
+    update autores
+    set Qtd_livros = Qtd_livros + 1
+    where matricula = new.matriculaAutor;
+    
+
+    
+end $$
+
+delimiter ;
+
+INSERT INTO livros(titulo, preco, lancamento, assunto, editora) VALUES
+('Banco', 131.2, '2015-01-10','B', 1);
+
+INSERT INTO autores_livros(codLivro, matriculaAutor) VALUES
+(8,456);
+
+select * from livros;
+
+select * from autores;
+
+select * from autores_livros;
+
+delimiter $$
+
+create trigger livro_del
+after delete on autores_livros for each row
+begin 
+
+
+    update autores
+    set Qtd_livros = Qtd_livros - 1
+    where matricula = old.matriculaAutor;
+    
+
+    
+end $$
+
+delimiter ;
+
+delete from autores_livros where codLivro = 8;
+
+create index idx_nacionalidade
+on autores(nacionalidade);
+
+show index
+from autores;
+
+alter table autores
+drop index idx_nacionalidade;
+
+explain select *
+from autores
+where nacionalidade > 'C' and matricula = 123;
+
+
+CREATE DATABASE teste1;
+
+
+
+CREATE TABLE funcionarios(
+nome varchar(80),
+sobrenome varchar(80),
+sexo char,
+cep varchar(80),
+codigoFunc int  auto_increment primary key
+);
+
+insert into funcionarios(nome,sobrenome, sexo,cep) values
+('Roberto', 'Silva', 'M','12345678'),
+('Maria', 'José', 'F', '12345678'),
+('João', 'Félix', 'M', '87654321'),
+('Ana', 'Maria', 'F', '12345678'),
+('Amanda', 'Nunes','F', '87654321');
+
+
+
+select sobrenome, nome, cep, sexo from funcionarios
+where sexo = 'F' and cep = '12345678'
+order by sobrenome,nome;
+
+
+CREATE INDEX idx_sexo_cep
+ON funcionarios(sexo,cep);
+
+show index
+from funcionarios;
+
+CREATE INDEX idx_sobrenome_nome
+ON funcionarios(sobrenome,nome);
+
+CREATE INDEX idx_sobrenome_sexo
+ON funcionarios(sobrenome,sexo);
+
+CREATE INDEX idx_cep_sobrenome
+ON funcionarios(cep,sobrenome);
+
+EXPLAIN UPDATE funcionarios
+SET sobrenome = 'McDonald'
+WHERE sobrenome = 'Silva' and nome = 'Roberto';
+
+EXPLAIN UPDATE funcionarios
+SET cep = '12345679'
+WHERE sobrenome = 'McDonald' AND cep = '12345678';
+
+EXPLAIN UPDATE funcionarios
+SET sexo = '?'
+WHERE sobrenome = 'McDonald' AND sexo = 'M';
+
+EXPLAIN SELECT sobrenome, nome, cep, sexo from funcionarios
+WHERE cep = '12345679' and sexo = '?'
+ORDER BY sobrenome,nome;
+
+EXPLAIN SELECT sobrenome, nome, cep, sexo from funcionarios
+WHERE sobrenome > 'N' 	AND sexo = 'F'
+ORDER BY sobrenome,nome;
+
+EXPLAIN SELECT sobrenome, nome, cep, sexo from funcionarios
+where sobrenome > 'S' and nome > 'P'
+order by sobrenome,nome;
